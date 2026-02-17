@@ -1,6 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { TAMSummaryCards } from "@/components/tam-summary-cards";
 import { TAMOverviewTable } from "@/components/tam-overview-table";
+import {
+  TAMDepletionDashboard,
+  type ProvinceDepletionData,
+} from "@/components/tam-depletion-dashboard";
+import { SA_PROVINCE_TAM } from "@/lib/constants";
+import { Separator } from "@/components/ui/separator";
 
 interface RegionData {
   id: string;
@@ -44,8 +50,53 @@ async function getTAMData(): Promise<RegionData[]> {
   });
 }
 
+async function getDepletionData(): Promise<ProvinceDepletionData[]> {
+  const regions = await prisma.region.findMany({
+    include: {
+      schools: {
+        select: { status: true },
+      },
+    },
+  });
+
+  // Build a lookup: normalised region name → status counts
+  const regionLookup = new Map<
+    string,
+    { total: number; contacted: number; replied: number; yes: number; no: number; uncontacted: number }
+  >();
+
+  for (const region of regions) {
+    const counts = { total: 0, contacted: 0, replied: 0, yes: 0, no: 0, uncontacted: 0 };
+    for (const school of region.schools) {
+      counts.total++;
+      const s = school.status as keyof Omit<typeof counts, "total">;
+      if (s in counts) counts[s]++;
+    }
+    // Normalise to lowercase for case-insensitive matching
+    regionLookup.set(region.name.toLowerCase().trim(), counts);
+  }
+
+  // Map each canonical SA province against DB data
+  return Object.entries(SA_PROVINCE_TAM).map(([name, tam]) => {
+    const counts = regionLookup.get(name.toLowerCase().trim());
+    return {
+      name,
+      tam,
+      knownSchools: counts?.total ?? 0,
+      contacted: counts?.contacted ?? 0,
+      replied: counts?.replied ?? 0,
+      yes: counts?.yes ?? 0,
+      no: counts?.no ?? 0,
+      uncontacted: counts?.uncontacted ?? 0,
+    };
+  });
+}
+
 export default async function DashboardPage() {
-  const data = await getTAMData();
+  const [data, depletionData] = await Promise.all([
+    getTAMData(),
+    getDepletionData(),
+  ]);
 
   const totals = data.reduce(
     (acc, r) => ({
@@ -67,22 +118,30 @@ export default async function DashboardPage() {
       : "0";
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">TAM Overview</h2>
-        <p className="text-muted-foreground text-sm">
-          Total Addressable Market penetration by region
-        </p>
+    <div className="space-y-10">
+      {/* ── TAM Overview ── */}
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold">TAM Overview</h2>
+          <p className="text-muted-foreground text-sm">
+            Total Addressable Market penetration by region
+          </p>
+        </div>
+
+        <TAMSummaryCards
+          totalTAM={totals.totalSchools}
+          knownSchools={totals.knownSchools}
+          contacted={contactedTotal}
+          responseRate={responseRate}
+        />
+
+        <TAMOverviewTable data={data} />
       </div>
 
-      <TAMSummaryCards
-        totalTAM={totals.totalSchools}
-        knownSchools={totals.knownSchools}
-        contacted={contactedTotal}
-        responseRate={responseRate}
-      />
+      <Separator />
 
-      <TAMOverviewTable data={data} />
+      {/* ── TAM Depletion Monitor ── */}
+      <TAMDepletionDashboard provinces={depletionData} />
     </div>
   );
 }
