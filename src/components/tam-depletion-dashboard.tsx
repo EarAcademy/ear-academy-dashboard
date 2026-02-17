@@ -32,6 +32,10 @@ interface ProvinceMetrics extends ProvinceDepletionData {
   hardNoRate: number;
   runway: number;
   conversionRate: number;
+  target: number;
+  stillNeed: number;
+  convertiblePool: number;
+  netConvertible: number;
   isWarn: boolean;
   isCritical: boolean;
 }
@@ -44,6 +48,18 @@ function calcMetrics(d: ProvinceDepletionData): ProvinceMetrics {
   const definitive = d.yes + d.no;
   const conversionRate = definitive > 0 ? (d.yes / definitive) * 100 : 0;
 
+  // Target = 20% of TAM (rounded up)
+  const target = Math.ceil(d.tam * 0.2);
+  // Still Need = how many more wins required to hit target (floor at 0)
+  const stillNeed = Math.max(0, target - d.yes);
+  // Convertible Pool = all schools that haven't hard-rejected us
+  const convertiblePool = d.tam - d.no;
+  // Net = pool minus expected future NOs from remaining runway (based on current NO rate)
+  const netConvertible = Math.max(
+    0,
+    convertiblePool - Math.round(runway * (hardNoRate / 100))
+  );
+
   return {
     ...d,
     totalTouched,
@@ -51,6 +67,10 @@ function calcMetrics(d: ProvinceDepletionData): ProvinceMetrics {
     hardNoRate,
     runway,
     conversionRate,
+    target,
+    stillNeed,
+    convertiblePool,
+    netConvertible,
     isWarn: contactedPct >= DEPLETION_THRESHOLDS.CONTACTED_WARN,
     isCritical: hardNoRate >= DEPLETION_THRESHOLDS.HARD_NO_CRITICAL,
   };
@@ -102,6 +122,10 @@ export function TAMDepletionDashboard({
   const totalRunway = metrics.reduce((s, m) => s + m.runway, 0);
   const totalYes = metrics.reduce((s, m) => s + m.yes, 0);
   const totalNo = metrics.reduce((s, m) => s + m.no, 0);
+  const totalTarget = metrics.reduce((s, m) => s + m.target, 0);
+  const totalStillNeed = metrics.reduce((s, m) => s + m.stillNeed, 0);
+  const totalConvertiblePool = metrics.reduce((s, m) => s + m.convertiblePool, 0);
+  const totalNetConvertible = metrics.reduce((s, m) => s + m.netConvertible, 0);
   const overallTamPct = totalTAM > 0 ? (totalTouched / totalTAM) * 100 : 0;
   const overallNoRate =
     totalTouched > 0 ? (totalNo / totalTouched) * 100 : 0;
@@ -283,6 +307,15 @@ export function TAMDepletionDashboard({
             <TableRow>
               <TableHead>Province</TableHead>
               <TableHead className="text-right">TAM</TableHead>
+              <TableHead className="text-right">
+                Target
+                <div className="text-xs font-normal text-muted-foreground">20% of TAM</div>
+              </TableHead>
+              <TableHead className="text-right">Won</TableHead>
+              <TableHead className="text-right">
+                Still Need
+                <div className="text-xs font-normal text-muted-foreground">Target − Won</div>
+              </TableHead>
               <TableHead className="text-right">In DB</TableHead>
               <TableHead className="text-right">Touched</TableHead>
               <TableHead className="w-44">
@@ -297,6 +330,10 @@ export function TAMDepletionDashboard({
                 <span className="text-xs font-normal text-muted-foreground">
                   (crit ≥60%)
                 </span>
+              </TableHead>
+              <TableHead className="text-right">
+                Conv. Pool
+                <div className="text-xs font-normal text-muted-foreground">TAM − NOs</div>
               </TableHead>
               <TableHead className="text-right">Runway</TableHead>
               <TableHead>Status</TableHead>
@@ -316,14 +353,41 @@ export function TAMDepletionDashboard({
               >
                 <TableCell className="font-medium">{m.name}</TableCell>
 
+                {/* TAM */}
                 <TableCell className="text-right text-muted-foreground">
                   {m.tam.toLocaleString()}
                 </TableCell>
 
+                {/* Target: 20% of TAM */}
+                <TableCell className="text-right text-muted-foreground">
+                  {m.target.toLocaleString()}
+                </TableCell>
+
+                {/* Won */}
+                <TableCell className="text-right font-medium text-green-600">
+                  {m.yes.toLocaleString()}
+                </TableCell>
+
+                {/* Still Need */}
+                <TableCell
+                  className={cn(
+                    "text-right font-medium",
+                    m.stillNeed === 0
+                      ? "text-green-600"
+                      : m.stillNeed > m.netConvertible
+                      ? "text-red-600"
+                      : "text-foreground"
+                  )}
+                >
+                  {m.stillNeed.toLocaleString()}
+                </TableCell>
+
+                {/* In DB */}
                 <TableCell className="text-right text-muted-foreground">
                   {m.knownSchools.toLocaleString()}
                 </TableCell>
 
+                {/* Touched */}
                 <TableCell className="text-right font-medium">
                   {m.totalTouched.toLocaleString()}
                 </TableCell>
@@ -369,6 +433,23 @@ export function TAMDepletionDashboard({
                   </span>
                 </TableCell>
 
+                {/* Convertible Pool */}
+                <TableCell className="text-right">
+                  <div className="font-medium tabular-nums">
+                    {m.convertiblePool.toLocaleString()}
+                  </div>
+                  <div
+                    className={cn(
+                      "text-xs tabular-nums",
+                      m.netConvertible < m.stillNeed
+                        ? "text-red-600 font-medium"
+                        : "text-muted-foreground"
+                    )}
+                  >
+                    Net: {m.netConvertible.toLocaleString()}
+                  </div>
+                </TableCell>
+
                 {/* Runway */}
                 <TableCell
                   className={cn(
@@ -396,9 +477,16 @@ export function TAMDepletionDashboard({
                 {totalTAM.toLocaleString()}
               </TableCell>
               <TableCell className="text-right">
-                {metrics
-                  .reduce((s, m) => s + m.knownSchools, 0)
-                  .toLocaleString()}
+                {totalTarget.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right text-green-600">
+                {totalYes.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right">
+                {totalStillNeed.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right">
+                {metrics.reduce((s, m) => s + m.knownSchools, 0).toLocaleString()}
               </TableCell>
               <TableCell className="text-right">
                 {totalTouched.toLocaleString()}
@@ -422,6 +510,12 @@ export function TAMDepletionDashboard({
               <TableCell className="text-right">{totalNo}</TableCell>
               <TableCell className="text-right tabular-nums">
                 {overallNoRate.toFixed(1)}%
+              </TableCell>
+              <TableCell className="text-right">
+                <div>{totalConvertiblePool.toLocaleString()}</div>
+                <div className="text-xs text-muted-foreground font-normal">
+                  Net: {totalNetConvertible.toLocaleString()}
+                </div>
               </TableCell>
               <TableCell className="text-right">
                 {totalRunway.toLocaleString()}
