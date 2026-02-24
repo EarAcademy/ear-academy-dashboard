@@ -38,10 +38,39 @@ class ActiveCampaignClient {
     const res = await fetch(url.toString(), {
       headers: { "Api-Token": this.apiKey },
     });
+
+    // Always read the body so we can log it on error or parse failures
+    const rawText = await res.text();
+
     if (!res.ok) {
-      throw new Error(`AC API error: ${res.status} ${res.statusText}`);
+      // Try to extract a structured message from the AC error body
+      let detail = rawText;
+      try {
+        const parsed = JSON.parse(rawText) as Record<string, unknown>;
+        if (parsed.message) detail = String(parsed.message);
+        else if (parsed.error) detail = String(parsed.error);
+      } catch {
+        // Body is not JSON — log the raw text so we can debug it
+        console.error(
+          `[AC] Non-JSON error response (${res.status}) from ${endpoint}:\n${rawText.slice(0, 500)}`
+        );
+      }
+      throw new Error(
+        `AC API error: ${res.status} ${res.statusText} — ${detail.slice(0, 300)}`
+      );
     }
-    return res.json() as Promise<T>;
+
+    // Parse JSON with a clear error if the success response is malformed
+    try {
+      return JSON.parse(rawText) as T;
+    } catch {
+      console.error(
+        `[AC] Expected JSON from ${endpoint} but got (${res.status}):\n${rawText.slice(0, 500)}`
+      );
+      throw new Error(
+        `AC API returned non-JSON response from ${endpoint} (status ${res.status})`
+      );
+    }
   }
 
   async getContacts(

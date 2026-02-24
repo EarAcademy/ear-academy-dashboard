@@ -114,8 +114,11 @@ export async function POST() {
                 };
               }
             }
-          } catch {
-            // Deal fetch failed — skip pipeline update for this contact
+          } catch (dealErr) {
+            // Deal fetch failed — log it but continue with base contact update
+            errors.push(
+              `Contact ${contact.id} (deal fetch): ${dealErr instanceof Error ? dealErr.message : String(dealErr)}`
+            );
           }
 
           await prisma.school.update({
