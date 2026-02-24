@@ -41,14 +41,18 @@ model School {
   activeCampaignId String?        @unique
   status           String         @default("uncontacted")
   notes            String?
-  pipelineStageId  String?
-  pipelineStage    PipelineStage? @relation(fields: [pipelineStageId], references: [id])
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  pipelineStageId      String?
+  pipelineStage        PipelineStage? @relation(fields: [pipelineStageId], references: [id])
+  currentPipelineStage String?
+  stageEnteredAt       DateTime?
+  previousStage        String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
 
   @@index([regionId])
   @@index([status])
   @@index([activeCampaignId])
+  @@index([currentPipelineStage])
 }
 
 model Pipeline {

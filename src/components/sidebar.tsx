@@ -8,6 +8,7 @@ import {
   MapPin,
   RefreshCw,
   Upload,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/auth";
@@ -29,6 +30,12 @@ const navItems = [
     label: "Regions",
     href: "/dashboard/regions",
     icon: MapPin,
+    adminOnly: false,
+  },
+  {
+    label: "Pipeline",
+    href: "/dashboard/pipeline",
+    icon: TrendingUp,
     adminOnly: false,
   },
   {
