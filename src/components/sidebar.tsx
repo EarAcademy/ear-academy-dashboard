@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Upload,
   TrendingUp,
+  FileSpreadsheet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Role } from "@/lib/auth";
@@ -37,6 +38,12 @@ const navItems = [
     href: "/dashboard/pipeline",
     icon: TrendingUp,
     adminOnly: false,
+  },
+  {
+    label: "ISASA Import",
+    href: "/dashboard/schools/import-isasa",
+    icon: FileSpreadsheet,
+    adminOnly: true,
   },
   {
     label: "CSV Upload",
