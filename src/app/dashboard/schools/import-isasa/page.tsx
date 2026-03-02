@@ -60,9 +60,19 @@ export default function ImportISASAPage() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const csv = ev.target?.result as string;
+      const seenHeaders = new Set<string>();
+      let dupCount = 0;
       const parsed = Papa.parse<Record<string, string>>(csv, {
         header: true,
         skipEmptyLines: true,
+        transformHeader: (header: string) => {
+          const h = header.trim();
+          if (seenHeaders.has(h)) {
+            return `__dup_${++dupCount}`;
+          }
+          seenHeaders.add(h);
+          return h;
+        },
       });
 
       const rows: PreviewRow[] = parsed.data
