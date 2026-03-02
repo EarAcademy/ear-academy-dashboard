@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import { StatusBadge } from "@/components/status-badge";
 import { SCHOOL_STATUSES } from "@/lib/constants";
-import { Plus, Upload } from "lucide-react";
+import { Plus, Upload, FileSpreadsheet } from "lucide-react";
 
 interface School {
   id: string;
@@ -87,6 +87,12 @@ export default function SchoolsPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button asChild variant="outline">
+            <Link href="/dashboard/schools/import-isasa">
+              <FileSpreadsheet className="h-4 w-4 mr-1" />
+              ISASA Import
+            </Link>
+          </Button>
           <Button asChild variant="outline">
             <Link href="/dashboard/schools/upload">
               <Upload className="h-4 w-4 mr-1" />
