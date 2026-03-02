@@ -53,50 +53,48 @@ export default function ImportISASAPage() {
   }, []);
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0];
-    if (!f) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
     setResult(null);
+    setPreview([]);
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const csv = ev.target?.result as string;
-      const seenHeaders = new Set<string>();
-      let dupCount = 0;
-      const parsed = Papa.parse<Record<string, string>>(csv, {
-        header: true,
-        skipEmptyLines: true,
-        transformHeader: (header: string) => {
-          const h = header.trim();
-          if (seenHeaders.has(h)) {
-            return `__dup_${++dupCount}`;
-          }
-          seenHeaders.add(h);
-          return h;
-        },
-      });
+    const seenHeaders = new Set<string>();
+    let dupCount = 0;
 
-      const rows: PreviewRow[] = parsed.data
-        .map((row) => ({
-          name: (
-            row["School Name"] ||
-            row["school name"] ||
-            row["school_name"] ||
-            ""
-          ).trim(),
-          email: (
-            row["Email Address"] ||
-            row["email address"] ||
-            row["email_address"] ||
-            row["Email"] ||
-            row["email"] ||
-            ""
-          ).trim(),
-        }))
-        .filter((row) => row.name);
+    Papa.parse<Record<string, string>>(file, {
+      header: true,
+      skipEmptyLines: true,
+      transformHeader: (header: string) => {
+        const h = header.trim();
+        if (seenHeaders.has(h)) {
+          return `__dup_${++dupCount}`;
+        }
+        seenHeaders.add(h);
+        return h;
+      },
+      complete: (parsed) => {
+        const rows: PreviewRow[] = parsed.data
+          .map((row) => ({
+            name: (
+              row["School Name"] ||
+              row["school name"] ||
+              row["school_name"] ||
+              ""
+            ).trim(),
+            email: (
+              row["Email Address"] ||
+              row["email address"] ||
+              row["email_address"] ||
+              row["Email"] ||
+              row["email"] ||
+              ""
+            ).trim(),
+          }))
+          .filter((row) => row.name);
 
-      setPreview(rows);
-    };
-    reader.readAsText(f);
+        setPreview(rows);
+      },
+    });
   }
 
   async function handleImport() {
